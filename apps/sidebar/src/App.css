@@ -1,0 +1,25 @@
+/* Стили для основного приложения */
+
+.ms-TaskPane {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+}
+
+.ms-TaskPane-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .ms-TaskPane-content {
+    padding: 8px;
+    gap: 12px;
+  }
+}

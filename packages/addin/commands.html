@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bot HTML Commands</title>
+    
+    <!-- Office.js API -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+    <script>
+        // Инициализация Office.js
+        Office.onReady(() => {
+            console.log('Bot HTML Commands готов к работе');
+        });
+
+        // Функция для выполнения команд
+        function executeFunction(event) {
+            console.log('Выполнение команды:', event);
+            
+            // Здесь можно добавить логику для выполнения команд
+            // Например, автоматическое обновление документа
+            
+            event.completed();
+        }
+
+        // Экспорт функции для Office.js
+        window.executeFunction = executeFunction;
+    </script>
+</body>
+</html>
