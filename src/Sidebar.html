@@ -1,0 +1,538 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- ===== UI панели (только для сайдбара) ===== -->
+  <style>
+    body{font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0}
+    .top{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #eee;flex-wrap:wrap}
+    .btn{padding:6px 10px;border:1px solid #222;border-radius:6px;background:#111;color:#fff;cursor:pointer}
+    .ghost{background:#fff;color:#111}
+    .note{padding:8px;color:#666}
+    iframe{width:100%;height:70vh;border:0}
+  </style>
+</head>
+<body>
+
+  <!-- ===== Панель действий ===== -->
+  <div class="top">
+    <button class="btn" onclick="refresh()">Обновить</button>
+    <button class="btn" onclick="copyHtml()">Скопировать HTML</button>
+    <button class="btn ghost" onclick="copyHtmlWithCss()">HTML + встроенный CSS</button>
+    <button class="btn" onclick="savePdf()">Save as PDF</button><!-- НОВОЕ -->
+    <button class="btn ghost" onclick="openFull()">Open Full Preview</button>
+  </div>
+
+  <!-- ===== Предпросмотр ===== -->
+  <iframe id="pv" title="Preview"></iframe>
+
+  <div class="note">
+    Предпросмотр использует встроенный CSS (см. CSS_BOT). Кнопка «Save as PDF» откроет окно печати — выбери «Save as PDF».
+  </div>
+
+  <script>
+    /* --------------------------------------------------------------------
+       1) ТВОЙ CSS (используется в превью, в HTML+CSS и в PDF)
+       -------------------------------------------------------------------- */
+    const CSS_BOT = `
+    /* ==========================================================================
+      BeOnTop Frontend Cheatsheet (neutral / no-colors / no-fonts)
+      Author: BeOnTop
+      Namespace: .bot-*
+      ========================================================================== */
+
+:root{
+  --bot-gap: clamp(12px, 2.5vw, 28px);
+  --bot-gap-sm: clamp(8px, 2vw, 20px);
+  --bot-radius: 0px;
+  --bot-line: 1px;
+}
+
+/* ===== Base ===== */
+.bot-scope, .bot-scope * { box-sizing: border-box; }
+.bot-scope figure { margin: 0; display: block; }
+.bot-scope img { display: block; max-width: 100%; height: auto; vertical-align: middle; }
+.bot-scope a { text-decoration: none; }
+
+.bot-text-sm { font-size: .875rem; }
+.bot-text-muted { opacity: .8; }
+.bot-center { text-align: center; }
+.bot-right  { text-align: right; }
+.bot-rounded { border-radius: var(--bot-radius); }
+.bot-shadow-outline { box-shadow: 0 0 0 var(--bot-line) currentColor; }
+.bot-lead { margin: 0 0 var(--bot-gap) 0; }
+
+.bot-section{
+  position: relative;
+  color: var(--bot-text-color, inherit);
+  max-width: var(--bot-section-maxw, none);
+  margin-inline: auto;
+  margin-block-start: var(--bot-section-mt, 0);
+  margin-block-end:   var(--bot-section-mb, 0);
+  margin:  var(--bot-section-m, var(--bot-section-mt, 0) auto var(--bot-section-mb, 0) auto);
+  padding: var(--bot-section-p, calc(var(--bot-gap)*2) var(--bot-gap));
+
+  /* Фон секции */
+  background-color: var(--bot-section_bgcolor, transparent);
+  background-image: var(--bot-section_bgimg, none);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+
+  border: var(--bot-section-border, none);
+  border-radius: var(--bot-section-radius, 0);
+  overflow: clip;
+
+  margin: var(--bot-section-m, var(--bot-section-mt, 0) 0 var(--bot-section-mb, 0) 0); /* ← боковые = 0 */
+  padding: var(--bot-section-p, calc(var(--bot-gap)*2) var(--bot-gap));
+
+}
+.bot-section::before{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--bot-section_overlay, transparent);
+  border-radius: inherit;          /* чтобы оверлей повторял радиус секции */
+  pointer-events:none;
+}
+
+.bot-section .bot-section-title{ margin: 0 0 var(--bot-gap) 0; line-height: 1.2; }
+
+.bot-container{
+  position: relative;
+  margin-inline: auto;
+
+  background-color: var(--bot-container_bgcolor, transparent);
+  background-image: var(--bot-container_bgimg, none);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+
+  
+  border: var(--bot-container-border, none);
+  border-radius: var(--bot-container-radius, 0);
+  overflow: clip;
+
+  width: var(--bot-container-pct, 100%);   /* было min(..., 92%) */
+  max-width: var(--bot-container-maxw, none); /* не ограничиваем, пока не задашь директивой */
+  margin: var(--bot-container-m, 0);       /* было 0 auto */
+  padding: var(--bot-container-p, 0);      /* внутренние отступы даёшь директивами */
+
+}
+.bot-container::before{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--bot-container_overlay, transparent);
+  border-radius: inherit;
+  pointer-events:none;
+}
+
+
+/* Заголовки тянут отдельный цвет; остальной текст — inherit */
+.bot-section .bot-section-title,
+.bot-section-subtitle,
+.bot-hero__title,
+.bot-card__title,
+.bot-faq__title{
+  color: var(--bot-title-color, currentColor);
+}
+
+/* ===== Links (внутри секции; кнопки не трогаем) ===== */
+.bot-section a:not(.bot-btn){
+  color: var(--bot-link-color, currentColor);
+  font-weight: var(--bot-link-weight, inherit);
+  text-decoration: var(--bot-link-decoration, none);
+}
+.bot-section[data-link-underline="hover"] a:not(.bot-btn){ text-decoration: none; }
+.bot-section[data-link-underline="hover"] a:not(.bot-btn):hover{ text-decoration: underline; }
+.bot-section a:not(.bot-btn):visited{ color: var(--bot-link-color, currentColor); }
+
+/* ===== Buttons ===== */
+.bot-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:.6rem 1rem;
+  background: var(--bot-btn-bg, transparent);
+  border: var(--bot-btn-border, var(--bot-line) solid var(--bot-btn-color, currentColor));
+  border-radius: var(--bot-btn-radius, var(--bot-radius));
+  line-height:1.1; cursor:pointer;
+  color: var(--bot-btn-color, currentColor);
+}
+
+.bot-btn:hover,.bot-btn:focus{ outline:none; box-shadow:0 0 0 calc(var(--bot-line)*2) currentColor; }
+
+/* Кнопки наследуют цвет из секции, можно переопределить переменной */
+.bot-section .bot-btn{
+  color: var(--bot-btn-color, currentColor);
+  border-color: var(--bot-btn-color, currentColor);
+}
+.bot-section .bot-btn:hover,
+.bot-section .bot-btn:focus{
+  outline:none;
+  box-shadow: 0 0 0 calc(var(--bot-line)*2) var(--bot-btn-color, currentColor);
+}
+
+.bot-actions{ display:flex; flex-wrap:wrap; gap:.5rem; }
+
+/* ============================== HERO / BANNER ============================== */
+.bot-hero{
+  position: relative;
+  padding: 0;
+  max-width: var(--bot-hero-maxw, none);
+  margin-inline: auto;
+}
+.bot-hero::before{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--bot-hero-overlay, transparent);
+  pointer-events:none;
+}
+.bot-hero__inner{
+  display:grid; gap:var(--bot-gap);
+  grid-template-columns: 1fr;
+  position: relative; z-index: 1; /* над оверлеем */
+}
+.bot-hero.is-center .bot-hero__inner{ text-align:center; justify-items:center; }
+.bot-hero.is-right  .bot-hero__inner{ text-align:right;  justify-items:end; }
+
+/* Разделённый режим: текст слева 70%, кнопки справа */
+@media (min-width:768px){
+  .bot-hero.is-split .bot-hero__inner{ grid-template-columns: 70% 1fr; }
+  .bot-hero__cta{ justify-self: end; }
+}
+
+/* Вертикальное выравнивание */
+.bot-hero.is-vcenter .bot-hero__inner{ min-height: var(--bot-hero-minh, auto); align-content: center; }
+.bot-hero.is-vbottom .bot-hero__inner{ min-height: var(--bot-hero-minh, auto); align-content: end; }
+@media (min-width:768px){
+  .bot-hero.is-split.is-vcenter .bot-hero__inner{ align-items: center; }
+  .bot-hero.is-split.is-vbottom .bot-hero__inner{ align-items: end; }
+  .bot-hero.is-split:not(.is-vcenter):not(.is-vbottom) .bot-hero__inner{ align-items: start; }
+}
+
+/* Содержимое */
+.bot-hero__title{ margin:0 0 .5rem 0; line-height:1.2; }
+.bot-hero__desc { margin:0; opacity:.85; }
+.bot-hero__actions{ margin-top: var(--bot-gap-sm); display:flex; gap:.5rem; flex-wrap:wrap; }
+/* Горизонтальное выравнивание экшенов по модификаторам баннера */
+.bot-hero.is-center .bot-hero__actions{ justify-content: center; }
+.bot-hero.is-right  .bot-hero__actions{ justify-content: flex-end; }
+
+/* ============================== MEDIA (img + content) ============================== */
+.bot-media{
+  display:grid; gap:var(--bot-gap);
+  grid-template-areas:
+    "image"
+    "content";
+}
+/* Стэк: картинка сверху, контент ниже — на всех ширинах */
+.bot-media.is-stacked{
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "image"
+    "content";
+}
+@media (min-width:768px){
+  .bot-media{
+    grid-template-columns: minmax(0, var(--bot-media-img, 1fr)) minmax(0, var(--bot-media-content, 1fr));
+    grid-template-areas: "image content";
+    align-items:center;
+  }
+  .bot-media.is-right{
+    grid-template-columns: minmax(0, var(--bot-media-content, 1fr)) minmax(0, var(--bot-media-img, 1fr));
+    grid-template-areas: "content image";
+  }
+  .bot-media.is-stacked{
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "image"
+      "content" !important;
+    align-items: start;
+  }
+}
+.bot-media__col{ min-width:0; }
+.bot-media__imgcol{ grid-area: image; }
+.bot-media__txtcol{ grid-area: content; }
+.bot-media__figure{ margin:0; }
+.bot-media__img{ aspect-ratio: var(--bot-media-ratio, 4/3); object-fit:cover; width:100%; }
+.bot-media__cap{ margin-top:.35rem; }
+.bot-media__img{
+  aspect-ratio: var(--bot-media-ratio, 4/3);
+  object-fit:cover; width:100%;
+  border-radius: var(--bot-img-radius, var(--bot-radius, 0px));
+}
+
+/* ============================== CARDS ============================== */
+.bot-cards{
+  display:grid;
+  gap:var(--bot-gap);
+  grid-template-columns: 1fr;
+}
+@media (min-width:768px){
+  .bot-cards{ grid-template-columns: repeat(var(--bot-cards-cols, 3), minmax(0,1fr)); }
+}
+.bot-card{
+  border:var(--bot-line) solid currentColor;
+  border-radius: var(--bot-card-radius, var(--bot-radius, 0px));
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.bot-card__media{
+  aspect-ratio: var(--bot-card-ratio, 4/5);
+  object-fit:cover; width:100%;
+  border-bottom:var(--bot-line) solid currentColor;
+}
+.bot-card__icon{
+  display:flex; align-items:center; justify-content:center;
+  width:100%; aspect-ratio: var(--bot-card-ratio, 4/5);
+  border-bottom:var(--bot-line) solid currentColor;
+  font-size: clamp(24px, 8vw, 56px); line-height:1;
+}
+.bot-card__body{ padding:1rem; display:flex; flex-direction:column; gap:.5rem; }
+.bot-card__title{ margin:0; }
+.bot-card__text{ margin:0; }
+.bot-card__actions{ margin-top:auto; display:flex; gap:.5rem; }
+.bot-card{
+  color: var(--bot-card-color, inherit);
+  background-color: var(--bot-card-bgcolor, transparent);
+  background-image: var(--bot-card-bgimg, none);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  border: var(--bot-card-border, var(--bot-line) solid currentColor);
+  border-radius: var(--bot-card-radius, var(--bot-radius, 0px));
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.bot-card__title{
+  margin:0;
+  color: var(--bot-card-title-color, var(--bot-title-color, currentColor));
+}
+
+
+
+/* ============================== FAQ ============================== */
+.bot-faq{ display:grid; gap: var(--bot-gap); }
+
+.bot-faq__item{
+  border: var(--bot-faq-item-border, var(--bot-line) solid currentColor);
+  border-radius: var(--bot-card-radius, var(--bot-radius));
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Шапка вопроса */
+.bot-faq__q{
+  display:grid;
+  grid-template-columns: auto 1fr auto;  /* иконка | заголовок | индикатор */
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem;
+  cursor: default;
+}
+.bot-faq__title{ margin: 0; line-height: 1.2; }
+
+/* Ответ */
+.bot-faq__a{ padding: 0 1rem 1rem 1rem; }
+.bot-faq__a p{ margin: 0; }
+
+/* Иконка у вопроса */
+.bot-faq__icon{
+  inline-size: 36px; block-size: 36px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--bot-line) currentColor;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 18px; line-height:1;
+}
+
+/* Аккордеон (details/summary) */
+details.bot-faq__item > summary.bot-faq__q { list-style: none; }
+details.bot-faq__item > summary::-webkit-details-marker { display:none; }
+details.bot-faq__item > summary::marker { content:''; }
+
+/* Индикатор раскрытия (+/–) */
+.bot-faq__chev{
+  inline-size: 18px; block-size: 18px; position: relative;
+}
+.bot-faq__chev::before, .bot-faq__chev::after{
+  content:''; position:absolute; inset: 50% auto auto 50%;
+  width: 12px; height: 2px; transform: translate(-50%,-50%);
+  background: currentColor;
+}
+.bot-faq__chev::after{ transform: translate(-50%,-50%) rotate(90deg); }
+details[open] .bot-faq__chev::after{ opacity:0; }
+
+/* Ховеры/фокус у summary */
+details.bot-faq__item > summary.bot-faq__q:hover,
+details.bot-faq__item > summary.bot-faq__q:focus{
+  outline:none;
+  box-shadow: 0 0 0 calc(var(--bot-line)*2) currentColor inset;
+}
+
+/* Кнопка в конце FAQ */
+.bot-faq__actions{ display:flex; justify-content:center; gap:.5rem; }
+
+
+/* Mobile: sections & containers are full-width */
+@media (max-width: 767px){
+  .bot-container{
+    width: 100%;
+    margin:  var(--bot-container-m-m, var(--bot-container-m, 0));
+    padding: var(--bot-container-p-m, var(--bot-container-p, 0));
+  }
+  .bot-section{
+    max-width: none;
+    margin:  var(--bot-section-m-m, var(--bot-section-m, var(--bot-section-mt, 0) 0 var(--bot-section-mb, 0) 0));
+    padding: var(--bot-section-p-m, var(--bot-section-p, calc(var(--bot-gap)*2) var(--bot-gap)));
+  }
+  .bot-hero{ max-width: none; }
+}
+/* ===== Section descriptions (inside container) ===== */
+.bot-section-desc { margin: var(--bot-gap) 0 0 0; }
+.bot-section-desc.is-top    { margin-top: 0; margin-bottom: var(--bot-gap); }
+.bot-section-desc.is-bottom { margin-top: var(--bot-gap); }
+.bot-section-desc p { margin: .25rem 0; }
+
+.bot-seo{
+  max-width: var(--bot-section-maxw, none);
+  margin: var(--bot-gap) auto;
+  padding: .75rem 1rem;
+  border: 1px dashed #ddd;
+  border-radius: 6px;
+  line-height: 1.45;
+}
+.bot-seo b{ font-weight: 700; }
+
+/* ============================== ZIGZAG ============================== */
+.bot-zigzag{ display:grid; gap:var(--bot-gap); }
+
+.bot-zigzag__row{
+  display:grid; gap:var(--bot-gap);
+  grid-template-columns: 1fr;               /* мобильный стек */
+  grid-template-areas:
+    "image"
+    "content";                               /* мобайл: сначала изображение */
+}
+
+@media (min-width:768px){
+  .bot-zigzag__row{
+    grid-template-columns:
+      minmax(0, var(--bot-zig-img,1fr))
+      minmax(0, var(--bot-zig-content,1fr));
+    grid-template-areas: "image content";    /* ряд: изображение | контент */
+    align-items:center;
+  }
+  .bot-zigzag__row.is-right{
+    grid-template-columns:
+      minmax(0, var(--bot-zig-content,1fr))
+      minmax(0, var(--bot-zig-img,1fr));
+    grid-template-areas: "content image";    /* ряд: контент | изображение */
+  }
+}
+
+.bot-zigzag__col{ min-width:0; }
+.bot-zigzag__imgcol{ grid-area: image; }
+.bot-zigzag__txtcol{ grid-area: content; }
+.bot-zigzag__figure{ margin:0; }
+.bot-zigzag__img{
+  width:100%;
+  aspect-ratio: var(--bot-zig-ratio, 4/3);
+  object-fit:cover;
+  border-radius: var(--bot-img-radius, var(--bot-radius, 0px));
+}
+.bot-zigzag__cap{ margin-top:.35rem; }
+
+
+
+
+`;
+
+    /* --------------------------------------------------------------------
+       2) Состояние/превью
+       -------------------------------------------------------------------- */
+    const pv = document.getElementById('pv');
+    let last = '<?= html ?>';
+
+    render(last);
+    setInterval(() => {
+      google.script.run.withSuccessHandler(h => {
+        if (h !== last) { last = h; render(h); }
+      }).buildHtml_();
+    }, 1200);
+
+    function render(html){
+      const doc = pv.contentDocument || pv.contentWindow.document;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><style>'+CSS_BOT+'</style></head><body>'+html+'</body></html>');
+      doc.close();
+    }
+
+    async function copyHtml(){
+      try{ await navigator.clipboard.writeText(last); alert('HTML скопирован'); }
+      catch(e){ fallbackCopy(last); }
+    }
+
+    async function copyHtmlWithCss(){
+      const wrapped = `<style>${CSS_BOT}</style>\n` + last;
+      try{ await navigator.clipboard.writeText(wrapped); alert('HTML + CSS скопированы'); }
+      catch(e){ fallbackCopy(wrapped); }
+    }
+
+    function refresh(){
+      google.script.run.withSuccessHandler(h => { last=h; render(h); }).buildHtml_();
+    }
+
+    function fallbackCopy(text){
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+      alert('Скопировано (fallback)');
+    }
+
+    function openFull(){
+      const htmlDoc = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Full Preview</title>
+  <style>${CSS_BOT}</style>
+</head>
+<body>${last}</body>
+</html>`;
+  
+      const w = window.open('', '_blank');
+      if(!w){ alert('Разреши всплывающие окна для этого сайта.'); return; }
+      w.document.open();
+      w.document.write(htmlDoc);
+      w.document.close();
+    }
+
+
+    // ===== Сохранение в PDF через окно печати =====
+    function savePdf(){
+      const htmlDoc =
+        `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BeOnTop snippet</title>
+  <style>
+    ${CSS_BOT}
+    @page{ size:A4; margin:16mm; }
+    body{ margin:0; }
+    .pdf-wrap{ padding:0; }     /* при необходимости добавь паддинг */
+  </style>
+</head>
+<body>
+  <div class="pdf-wrap">${last}</div>
+  <script>window.onload = () => { setTimeout(() => { window.print(); }, 300); }<\/script>
+</body>
+</html>`;
+
+      const w = window.open('', '_blank');        // может потребоваться разрешить pop-ups
+      if(!w){ alert('Разреши всплывающие окна для этого сайта и попробуй снова.'); return; }
+      w.document.open();
+      w.document.write(htmlDoc);
+      w.document.close();
+    }
+  </script>
+</body>
+</html>
